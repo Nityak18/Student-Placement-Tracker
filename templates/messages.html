@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Messages Received</h1>
+  <table border="1" cellpadding="8">
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Message</th>
+    </tr>
+    {% for msg in messages %}
+    <tr>
+      <td>{{ msg.id }}</td>
+      <td>{{ msg.name }}</td>
+      <td>{{ msg.email }}</td>
+      <td>{{ msg.message }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

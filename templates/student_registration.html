@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+
+<nav>
+    <a href="{{ url_for('home') }}">Home  |  </a>
+    <a href="{{ url_for('admin_register') }}">Placement Cell Register  |  </a>
+    <a href="{{ url_for('login') }}">Login</a>
+</nav>
+
+<h2>Student Registration</h2>
+<form method="POST" action="{{ url_for('student_register') }}"  enctype="multipart/form-data">
+    <label>Username:</label>
+    <input type="text" name="username" required><br><br>
+
+    <label>Email:</label>
+    <input type="email" name="email" required><br><br>
+
+    <label>Password:</label>
+    <input type="password" name="password" required><br><br>
+
+    <label>Roll Number:</label>
+    <input type="text" name="roll_no" required><br><br>
+
+    <label>Department:</label>
+    <input type="text" name="department" required><br><br>
+
+    <label for="resume">Upload Resume (PDF only):</label>
+    <input type="file" id="resume" name="resume" accept=".pdf" required>
+    <label>
+        <input type="checkbox" class="checkbox" required>I agree to the <a href="{{url_for('terms')}}" target="_blank">Terms & Conditions</a>
+    </label>
+<br><br>
+
+    <button type="submit">Register</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Terms & Conditions</h2>
+<p>Welcome to the Placement Tracker System. Please read these terms carefully before registering.</p>
+
+<ul>
+  <li>All information provided must be accurate and true.</li>
+  <li>Students are responsible for uploading their own resumes in PDF format only.</li>
+  <li>Admins may use student data solely for placement purposes.</li>
+  <li>Unauthorized sharing or misuse of data is strictly prohibited.</li>
+  <li>By registering, you agree to abide by all placement cell policies and system usage rules.</li>
+</ul>
+
+<p>Click “I Agree” on the registration page to confirm you have read these terms.</p>
+
+<a href="{{ url_for('home') }}">Back to Home</a>
+{% endblock %}

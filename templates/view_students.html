@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Registered Students</h2>
+<table border="1" cellpadding="10">
+    <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Roll No</th>
+        <th>Department</th>
+        <th>Skills</th>
+    </tr>
+    {% for student in students %}
+    <tr>
+        <td>{{ student.user.username }}</td>
+        <td>{{ student.user.email }}</td>
+        <td>{{ student.roll_no }}</td>
+        <td>{{ student.department }}</td>
+        <td>{{ student.skills }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

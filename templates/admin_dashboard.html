@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Placement Cell Dashboard 🏢</h2>
+
+<div class="dashboard-cards">
+  
+  <div class="card">
+    <div class="card-img-container">
+        <img src="/static/css/post job image.jpg" alt="Avatar" class="card-img">
+    </div>
+    <h3>📢 Post New Jobs</h3>
+    <p>Add new placement opportunities for students and specify eligibility criteria.</p>
+    <a href="{{ url_for('post_job') }}"><button>Go</button></a>
+  </div>
+
+  <div class="card">
+    <div class="card-img-container">
+        <img src="/static/css/view students.jpg" alt="Avatar" class="card-img">
+    </div>
+    <h3>🎓 View Registered Students</h3>
+    <p>Check all students registered for placement with their department and skills.</p>
+    <a href="{{ url_for('view_students') }}"><button>Go</button></a>
+  </div>
+
+  <div class="card">
+    <div class="card-img-container">
+        <img src="/static/css/track applications.jpg" alt="Avatar" class="card-img">
+    </div>
+    <h3>📊 Track Applications</h3>
+    <p>Monitor which students applied for which company and track interview progress.</p>
+    <a href="{{ url_for('track_applications') }}"><button>Go</button></a>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Placement Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <style>
+    /* ---------- Sidebar Styling ---------- */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -260px;
+      width: 240px;
+      height: 100%;
+      background-color: #1e1e2f;
+      color: #fff;
+      padding-top: 70px;
+      transition: left 0.4s ease;
+      z-index: 1000;
+      box-shadow: 3px 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .sidebar.open {
+      left: 0;
+    }
+
+    .sidebar a {
+      display: block;
+      padding: 12px 22px;
+      color: #ddd;
+      text-decoration: none;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar a:hover {
+      background-color: #2a2a40;
+      color: #fff;
+      padding-left: 28px;
+    }
+
+    /* ---------- Toggle Button ---------- */
+    .toggle-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: linear-gradient(90deg, #4b79a1, #283e51);
+      color: #fff;
+      border: none;
+      padding: 10px 15px;
+      cursor: pointer;
+      font-size: 18px;
+      border-radius: 8px;
+      z-index: 1100;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .toggle-btn:hover {
+      transform: scale(1.1);
+      background: linear-gradient(90deg, #283e51, #4b79a1);
+    }
+
+    /* ---------- Overlay ---------- */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+      z-index: 900;
+    }
+
+    .overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* ---------- Keep All Content Centered ---------- */
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
+      margin: 0;
+    }
+
+    header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 38px;
+  max-width: none;
+  z-index: 100; /* Ensures header is above other elements */
+}
+
+footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  max-width: none;
+  z-index: 100; /* Ensures footer is above other elements */
+}
+
+
+    main {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+      margin-top: 30px;
+      margin-bottom: 30px;
+      padding: 25px;
+      width: 90%;
+      max-width: 900px;
+      text-align: left;
+      z-index: 1;
+    }
+
+    footer {
+      width: 97%;
+      background-color: #4b79a1;
+      color: #fff;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .footer-right a {
+      color: #fff;
+      margin-left: 20px;
+      text-decoration: underline;
+    }
+
+    .footer-right a:hover {
+      color: #A57D5A;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <!-- Sidebar Toggle Button -->
+  <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <a href="{{ url_for('home') }}">🏠 Home</a>
+    <a href="{{ url_for('login') }}">🎓 Login</a>
+    <a href="{{ url_for('student_register') }}">💼 Student Register</a>
+    <a href="{{ url_for('admin_register') }}">📊 Placement Register</a>
+    <a href="{{ url_for('about') }}"> ℹ About</a>
+    <a href="{{ url_for('contact') }}"> ✉ Contact</a>
+  </div>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Header -->
+  <header>
+    <h1>📘 Student Placement Tracker</h1>
+    <hr>
+  </header>
+
+
+  <!-- Main Content -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  <script src="script.js"></script>
+  </main>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <ul class="flashes">
+        {% for category, message in messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+  <br> <br><br>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-left">
+      <span>© 2025 | Connecting students and opportunities</span>
+    </div>
+    <div class="footer-right">
+      <a href="{{ url_for('about') }}">About Us</a>
+      <a href="{{ url_for('contact') }}">Contact</a>
+    </div>
+  </footer>
+
+  <!-- Sidebar Script -->
+  <script>
+    function toggleSidebar() {
+      const sidebar = document.getElementById("sidebar");
+      const overlay = document.getElementById("overlay");
+      sidebar.classList.toggle("open");
+      overlay.classList.toggle("active");
+    }
+  </script>
+
+</body>
+</html>
+

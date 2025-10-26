@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Track Student Applications</h2>
+
+{% if applications %}
+<table border="1" cellpadding="8">
+    <tr>
+        <th>Student Name</th>
+        <th>Job Title</th>
+        <th>Company</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+    {% for app in applications %}
+    <tr>
+        <td>{{ app.student.user.username }}</td>
+        <td>{{ app.job.role }}</td>
+        <td>{{ app.job.company_name }}</td>
+        <td>{{ app.status }}</td>
+        <!-- 🧾 Resume column -->
+        <td>
+            {% if app.student.resume_path %}
+                <a href="{{ url_for('view_resume', filename=app.student.resume_path) }}" target="_blank" style="color: blue;">View Resume</a>
+            {% else %}
+                <span style="color: gray;">No resume</span>
+            {% endif %}
+        </td>
+        <td>
+            <form method="POST" action="{{ url_for('track_applications') }}">
+                <input type="hidden" name="application_id" value="{{ app.id }}">
+                <select name="status" required>
+                    <option value="Applied" {% if app.status == 'Applied' %}selected{% endif %}>Applied</option>
+                    <option value="Shortlisted" {% if app.status == 'Shortlisted' %}selected{% endif %}>Shortlisted</option>
+                    <option value="Selected" {% if app.status == 'Selected' %}selected{% endif %}>Selected</option>
+                    <option value="Rejected" {% if app.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+                </select>
+                <button type="submit">Update</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>No applications yet.</p>
+{% endif %}
+
+{% endblock %}

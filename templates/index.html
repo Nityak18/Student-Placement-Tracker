@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block content %}
+<!-- Image Slider Section -->
+<div class="image-slider">
+  <div class="slides">
+    <img src="/static/css/image1.jpg" alt="Avatar" class="card-img">
+    <img src="/static/css/image2.jpg" alt="Avatar" class="card-img">
+    <img src="/static/css/image3.jpg" alt="Avatar" class="card-img">
+  </div>
+</div>
+<h2>🚀 Your Gateway to Career Opportunities</h2>
+<p>Helping students manage placements smartly while enabling recruiters to discover the best talent effortlessly.</p>
+<div>
+    <div class="button"></div>
+    <a href="{{ url_for('student_register') }}"><button>Student Register </button></a>
+    <a href="{{ url_for('admin_register') }}"><button>Placement Cell Register</button></a>
+    <a href="{{ url_for('login') }}"><button>Login</button></a>
+</div>
+
+
+<!-- Company Logo Scrolling Section -->
+<section class="logo-section">
+    <h3>Our Recruiting Partners</h3>
+    <div class="logo-slider">
+        <div class="logo-track">
+            <img src="{{ url_for('static', filename='css/infosys.jpg') }}" alt="Infosys">
+            <img src="{{ url_for('static', filename='css/amazon-logo.webp') }}" alt="Amazon">
+            <img src="{{ url_for('static', filename='css/Deloitte-Logo.jpg') }}" alt="Deloitte">
+            <img src="{{ url_for('static', filename='css/tcs.jpg') }}" alt="TCS">
+            <!-- Duplicate set for continuous loop -->
+            <img src="{{ url_for('static', filename='css/infosys.jpg') }}" alt="Infosys">
+            <img src="{{ url_for('static', filename='css/amazon-logo.webp') }}" alt="Amazon">
+            <img src="{{ url_for('static', filename='css/Deloitte-Logo.jpg') }}" alt="Deloitte">
+            <img src="{{ url_for('static', filename='css/tcs.jpg') }}" alt="TCS">
+        </div>
+    </div>
+</section>
+<section class="placement-graph">
+    <h3>Placement Statistics (Year-Wise)</h3>
+    <div class="chart-container">
+    <canvas id="placementChart"></canvas>
+    </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% include 'footer1.html' %}
+{% endblock %}

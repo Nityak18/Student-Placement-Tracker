@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Post New Job Openings</h2>
+
+<form method="POST" action="{{ url_for('post_job') }}">
+    <label>Company Name:</label>
+    <input type="text" name="company_name" required><br><br>
+
+    <label>Role:</label>
+    <input type="text" name="role" required><br><br>
+
+    <label>Salary:</label>
+    <input type="text" name="salary"><br><br>
+
+    <label>Eligibility:</label>
+    <input type="text" name="eligibility"><br><br>
+
+    <label>Location:</label>
+    <input type="text" name="location"><br><br>
+
+    <button type="submit">Post Job</button>
+</form>
+
+<hr>
+<h3>Posted Jobs</h3>
+<table border="1" cellpadding="10">
+    <tr>
+        <th>Company</th>
+        <th>Role</th>
+        <th>Salary</th>
+        <th>Eligibility</th>
+        <th>Location</th>
+    </tr>
+    {% for job in jobs %}
+    <tr>
+        <td>{{ job.company_name }}</td>
+        <td>{{ job.role }}</td>
+        <td>{{ job.salary }}</td>
+        <td>{{ job.eligibility }}</td>
+        <td>{{ job.location }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
