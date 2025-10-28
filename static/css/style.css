@@ -5,7 +5,7 @@ body {
     background: linear-gradient(to right, #f0f4f8, #d9e2ec);
     color: #333;
     background-image: url(image.jpg);
-    background-repeat: no-repeat;     /* Prevent tiling */
+    /* background-repeat: no-repeat;     /* Prevent tiling */
     background-position: center;
     background-size:cover; 
 }
@@ -471,6 +471,29 @@ footer {
   box-shadow: 0 4px 12px rgba(44, 62, 80, 0.10);
   flex-shrink: 0; /* Prevent shrinking in flex container */
   margin-right: 0px;
+}
+@media (max-width: 768px) {
+  .image-slider {
+    width: 95%;
+    aspect-ratio: 4 / 3; /* Taller on tablets */
+    border-radius: 16px;
+  }
+
+  .image-slider img.card-img {
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .image-slider {
+    width: 100%;
+    aspect-ratio: 1 / 1; /* Square for small mobile screens */
+    border-radius: 12px;
+  }
+
+  .image-slider img.card-img {
+    border-radius: 12px;
+  }
 }
 .chart-container {
   width: 70%;

@@ -7,18 +7,23 @@ from dotenv import load_dotenv
 import os
 
 # ---------------- App Config ----------------
-app = Flask(__name__)
 load_dotenv()
+app = Flask(__name__)
 
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+# ---------------- Secret Key ----------------
+app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
+
+# ---------------- Mail Config ----------------
+app.config.update(
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
+    MAIL_DEFAULT_SENDER=os.environ.get('MAIL_DEFAULT_SENDER')
+)
 
 mail = Mail(app)
-app.secret_key = "your_secret_key_here"
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
@@ -201,24 +206,21 @@ def delete_account():
 
     user_id = session['user_id']
     student = Student.query.filter_by(user_id=user_id).first()
-    # If there's no student record, bail out early
-    if not student:
-        flash("Student record not found.", "danger")
-        return redirect(url_for('home'))
 
-    # Proceed to delete student-related data
-    try:
-        # Delete related applications first
+    if student:
+        # Step 1: Delete related applications first
         Application.query.filter_by(student_id=student.id).delete()
 
-        # Delete resume file if it exists (use configured upload folder)
+        # Step 2: Delete resume file if exists
         if student.resume_path:
-            resume_file = os.path.join(app.config.get('UPLOAD_FOLDER', app.static_folder), student.resume_path)
+            resume_file = os.path.join(app.static_folder, 'resumes', student.resume_path)
             if os.path.exists(resume_file):
                 os.remove(resume_file)
 
-        # Delete student and linked user record
+        # Step 3: Delete student record
         db.session.delete(student)
+
+        # Step 4: Delete linked user account
         user = User.query.get(user_id)
         if user:
             db.session.delete(user)
@@ -226,12 +228,27 @@ def delete_account():
         db.session.commit()
         session.clear()
         flash("Your account and data have been permanently deleted.", "success")
+        return redirect(url_for('home'))
 
-    except Exception as e:
-        db.session.rollback()
-        print("Error deleting account:", repr(e))
-        flash("An error occurred while deleting your account. Please contact support.", "danger")
+    else:
+        flash("Student record not found.", "danger")
+        return redirect(url_for('home'))
+    if student:
+        # Delete resume file if it exists
+        if student.resume_path:
+            resume_file = os.path.join(app.config['UPLOAD_FOLDER'], student.resume_path)
+            if os.path.exists(resume_file):
+                os.remove(resume_file)
 
+        # Delete student and linked user record
+        db.session.delete(student)
+        user = User.query.get(user_id)
+        db.session.delete(user)
+        db.session.commit()
+
+    # Clear session and redirect
+    session.clear()
+    flash("Your profile has been deleted permanently.", "info")
     return redirect(url_for('home'))
 
 @app.route('/apply_job/<int:job_id>')
@@ -344,12 +361,15 @@ def track_applications():
     if request.method == 'POST':
         app_id = request.form.get('application_id')
         new_status = request.form.get('status')
+
         if app_id and new_status:
             application = Application.query.get(app_id)
             if application:
                 application.status = new_status
                 db.session.commit()
                 flash("Application status updated successfully!", "success")
+
+                # ✉ Send email notification to the student
                 try:
                     student = application.student
                     student_user = student.user
@@ -377,6 +397,7 @@ Placement Cell
                 except Exception as e:
                     print("Error sending status email:", repr(e))
                     flash("Status updated but email notification failed.", "warning")
+
         return redirect(url_for('track_applications'))
 
     applications = Application.query.all()
@@ -385,7 +406,7 @@ from flask import send_from_directory
 
 @app.route('/view_resume/<filename>')
 def view_resume(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename) 
 
 # ---------------- Login / Logout ----------------
 @app.route('/login', methods=['GET', 'POST'])
@@ -427,10 +448,6 @@ def logout():
     session.clear()
     flash("Logged out successfully!", "info")
     return redirect(url_for('home'))
-# @app.route('/')
-# def home():
-#     return render_template('index.html')
-
 
 # ---------------- Run App ----------------
 if __name__ == '__main__':
