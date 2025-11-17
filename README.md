@@ -30,7 +30,7 @@ It allows **students**, **admins**, and **companies** to interact through a cent
 | Backend | Python (Flask Framework) |
 | Database | SQLite3 |
 | Charts | Chart.js |
-| Deployment | Render / PythonAnywhere |
+| Deployment | Render |
 | Version Control | Git + GitHub |
 
 -

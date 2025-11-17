@@ -1,4 +1,7 @@
+# Flask Secret Key
+SECRET_KEY=Jaishriram
+
+# Gmail SMTP Configuration
 MAIL_USERNAME=nehaspatil19@gmail.com
-MAIL_PASSWORD=buza kililmkicoka
+MAIL_PASSWORD=buzakililmkicoka
 MAIL_DEFAULT_SENDER=nehaspatil19@gmail.com
-SECRET_KEY=neha192005nitya182005

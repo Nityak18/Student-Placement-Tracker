@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -14,37 +14,27 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
 
 # ---------------- Mail Config ----------------
-app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
-    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
-    MAIL_DEFAULT_SENDER=os.environ.get('MAIL_DEFAULT_SENDER')
-)
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
 
 mail = Mail(app)
 
+# ---------------- Database Config ----------------
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# store resumes under static/resumes so they are accessible via url_for('static', ...)
+db = SQLAlchemy(app)
+
+# ---------------- Upload Config ----------------
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'resumes')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 ALLOWED_EXT = {'pdf'}
-# ---------------- Email Config ----------------
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'your_email@gmail.com'  # your Gmail
-app.config['MAIL_PASSWORD'] = 'your_app_password'     # App password (NOT normal Gmail password)
-app.config['MAIL_DEFAULT_SENDER'] = ('Placement Cell', 'your_email@gmail.com')
-
-mail = Mail(app)
-
-db = SQLAlchemy(app)
 
 # ---------------- Database Models ----------------
 class User(db.Model):
@@ -92,9 +82,95 @@ class ContactMessage(db.Model):
     email = db.Column(db.String(120), nullable=False)
     message = db.Column(db.Text, nullable=False)
 
-# ---------------- Helpers ----------------
+# ---------------- Helper Functions ----------------
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
+
+def send_status_email(student_email, student_name, job_title, company_name, status):
+    """Send email notification to student about application status update"""
+    try:
+        # Create appropriate subject and body based on status
+        if status.lower() in ['shortlisted', 'shortlist']:
+            subject = f"🎉 Congratulations! Shortlisted for {job_title} at {company_name}"
+            body = f"""Dear {student_name},
+
+Congratulations! We are pleased to inform you that you have been SHORTLISTED for the position of "{job_title}" at {company_name}.
+
+This is an important milestone in your placement process. Please keep an eye on your email and dashboard for further updates regarding the next steps.
+
+What to do next:
+• Log in to your dashboard regularly for updates
+• Keep your resume and documents ready
+• Prepare for potential interviews
+
+We wish you the best of luck for the upcoming rounds!
+
+Best regards,
+Placement Cell Team
+"""
+        elif status.lower() in ['accepted', 'selected', 'placed']:
+            subject = f"🎊 Congratulations! Selected for {job_title} at {company_name}"
+            body = f"""Dear {student_name},
+
+CONGRATULATIONS! 🎉
+
+We are thrilled to inform you that you have been SELECTED for the position of "{job_title}" at {company_name}!
+
+This is a wonderful achievement, and we are very proud of you. Please login to your dashboard for more details and further instructions.
+
+Next Steps:
+• Check your dashboard for offer letter details
+• Contact the placement cell if you have any questions
+• Await further communication from {company_name}
+
+Once again, congratulations on your success!
+
+Best regards,
+Placement Cell Team
+"""
+        elif status.lower() in ['rejected', 'not selected']:
+            subject = f"Application Update: {job_title} at {company_name}"
+            body = f"""Dear {student_name},
+
+Thank you for your interest in the position of "{job_title}" at {company_name}.
+
+After careful consideration, we regret to inform you that your application has not been selected for this particular role.
+
+However, please don't be discouraged. This is just one opportunity, and many more are ahead. We encourage you to:
+• Keep applying for other openings
+• Update your skills and resume
+• Stay positive and persistent
+
+Please login to your dashboard to view other available opportunities.
+
+Best regards,
+Placement Cell Team
+"""
+        else:
+            subject = f"Application Update: {job_title} at {company_name}"
+            body = f"""Dear {student_name},
+
+Your application status for the position of "{job_title}" at {company_name} has been updated to: {status.upper()}.
+
+Please login to your dashboard for more details and updates.
+
+Best regards,
+Placement Cell Team
+"""
+
+        # Create and send the message
+        msg = Message(
+            subject=subject,
+            recipients=[student_email],
+            body=body
+        )
+        mail.send(msg)
+        return True, "Email sent successfully"
+    
+    except Exception as e:
+        error_msg = f"Error sending email: {str(e)}"
+        print(error_msg)
+        return False, error_msg
 
 # ---------------- Routes ----------------
 @app.route('/')
@@ -124,6 +200,7 @@ def contact():
         return redirect(url_for('contact'))
 
     return render_template('contact.html')
+
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
@@ -139,17 +216,14 @@ def student_register():
         department = request.form.get('department', '').strip()
         skills = request.form.get('skills', '').strip()
 
-        # basic validation
         if not (username and email and raw_password and roll_no and department):
             flash("Please fill required fields.", "danger")
             return redirect(url_for('student_register'))
 
-        # check duplicate email or username
         if User.query.filter((User.email == email) | (User.username == username)).first():
             flash("Username or email already registered.", "danger")
             return redirect(url_for('student_register'))
 
-        # handle resume
         filename = None
         if 'resume' in request.files and request.files['resume'].filename != '':
             resume = request.files['resume']
@@ -157,11 +231,9 @@ def student_register():
                 flash("Only PDF resumes are allowed.", "danger")
                 return redirect(url_for('student_register'))
             filename = secure_filename(resume.filename)
-            # ensure filename uniqueness (prefix with user/email/time)
             filename = f"{username}_{filename}"
             resume.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-        # create user and student
         password = generate_password_hash(raw_password)
         new_user = User(username=username, email=email, password=password, role='student')
         db.session.add(new_user)
@@ -173,7 +245,6 @@ def student_register():
         db.session.add(new_student)
         db.session.commit()
 
-        # auto-login student and go to dashboard
         session['user_id'] = new_user.id
         session['username'] = new_user.username
         session['role'] = 'student'
@@ -198,6 +269,7 @@ def student_dashboard():
     applications = Application.query.filter_by(student_id=student.id).all()
 
     return render_template('student_dashboard.html', student=student, jobs=jobs, applications=applications)
+
 @app.route('/delete_account', methods=['POST'])
 def delete_account():
     if 'user_id' not in session:
@@ -208,19 +280,14 @@ def delete_account():
     student = Student.query.filter_by(user_id=user_id).first()
 
     if student:
-        # Step 1: Delete related applications first
         Application.query.filter_by(student_id=student.id).delete()
 
-        # Step 2: Delete resume file if exists
         if student.resume_path:
-            resume_file = os.path.join(app.static_folder, 'resumes', student.resume_path)
+            resume_file = os.path.join(app.config['UPLOAD_FOLDER'], student.resume_path)
             if os.path.exists(resume_file):
                 os.remove(resume_file)
 
-        # Step 3: Delete student record
         db.session.delete(student)
-
-        # Step 4: Delete linked user account
         user = User.query.get(user_id)
         if user:
             db.session.delete(user)
@@ -229,27 +296,9 @@ def delete_account():
         session.clear()
         flash("Your account and data have been permanently deleted.", "success")
         return redirect(url_for('home'))
-
     else:
         flash("Student record not found.", "danger")
         return redirect(url_for('home'))
-    if student:
-        # Delete resume file if it exists
-        if student.resume_path:
-            resume_file = os.path.join(app.config['UPLOAD_FOLDER'], student.resume_path)
-            if os.path.exists(resume_file):
-                os.remove(resume_file)
-
-        # Delete student and linked user record
-        db.session.delete(student)
-        user = User.query.get(user_id)
-        db.session.delete(user)
-        db.session.commit()
-
-    # Clear session and redirect
-    session.clear()
-    flash("Your profile has been deleted permanently.", "info")
-    return redirect(url_for('home'))
 
 @app.route('/apply_job/<int:job_id>')
 def apply_job(job_id):
@@ -257,7 +306,6 @@ def apply_job(job_id):
         flash("Access denied! Students only.", "danger")
         return redirect(url_for('login'))
 
-    # get student's DB id
     user_id = session['user_id']
     student = Student.query.filter_by(user_id=user_id).first()
     if not student:
@@ -298,7 +346,6 @@ def admin_register():
         db.session.add(admin)
         db.session.commit()
 
-        # auto-login admin
         session['user_id'] = admin.id
         session['username'] = admin.username
         session['role'] = 'admin'
@@ -313,7 +360,6 @@ def admin_dashboard():
         flash("Access denied! Admins only.", "danger")
         return redirect(url_for('login'))
 
-    # optionally you can fetch admin details with Admin.query.get(session['user_id'])
     return render_template('admin_dashboard.html')
 
 @app.route('/post_job', methods=['GET', 'POST'])
@@ -365,48 +411,41 @@ def track_applications():
         if app_id and new_status:
             application = Application.query.get(app_id)
             if application:
+                # Update status in database
                 application.status = new_status
                 db.session.commit()
-                flash("Application status updated successfully!", "success")
-
-                # ✉ Send email notification to the student
-                try:
-                    student = application.student
-                    student_user = student.user
-                    student_email = student_user.email
-                    student_name = student_user.username
-
-                    job = application.job
-                    job_title = job.role
-                    company_name = job.company_name
-
-                    subject = f"Update: Your application for {job_title} at {company_name}"
-
-                    body = f"""Hello {student_name},
-
-Your application status for the role "{job_title}" at {company_name} has been updated to: {new_status}.
-
-Please login to your dashboard for more details.
-
-Best regards,
-Placement Cell
-"""
-
-                    msg = Message(subject=subject, recipients=[student_email], body=body)
-                    mail.send(msg)
-                except Exception as e:
-                    print("Error sending status email:", repr(e))
-                    flash("Status updated but email notification failed.", "warning")
+                
+                # Get student and job details
+                student = application.student
+                student_user = student.user
+                job = application.job
+                
+                # Send email notification
+                success, message = send_status_email(
+                    student_email=student_user.email,
+                    student_name=student_user.username,
+                    job_title=job.role,
+                    company_name=job.company_name,
+                    status=new_status
+                )
+                
+                if success:
+                    flash(f"Application status updated to '{new_status}' and email sent to student!", "success")
+                else:
+                    flash(f"Status updated to '{new_status}' but email notification failed: {message}", "warning")
+            else:
+                flash("Application not found!", "danger")
+        else:
+            flash("Please provide application ID and status!", "danger")
 
         return redirect(url_for('track_applications'))
 
     applications = Application.query.all()
     return render_template('track_applications.html', applications=applications)
-from flask import send_from_directory
 
 @app.route('/view_resume/<filename>')
 def view_resume(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename) 
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 # ---------------- Login / Logout ----------------
 @app.route('/login', methods=['GET', 'POST'])
@@ -437,7 +476,6 @@ def login():
                 return redirect(url_for('admin_dashboard'))
             else:
                 flash('Invalid placement cell credentials', 'danger')
-
         else:
             flash('Please select a role to login.', 'danger')
 
