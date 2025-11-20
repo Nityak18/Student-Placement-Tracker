@@ -12,15 +12,17 @@ app = Flask(__name__)
 
 # ---------------- Secret Key ----------------
 app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
-
-# ---------------- Mail Config ----------------
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+# ---------------- Mail Config (Mailjet) ----------------
+app.config['MAIL_SERVER'] = 'in-v3.mailjet.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', os.environ.get('MAIL_USERNAME'))
 
+# Mailjet API Keys
+app.config['MAIL_USERNAME'] = os.environ.get('MJ_APIKEY_PUBLIC')
+app.config['MAIL_PASSWORD'] = os.environ.get('MJ_APIKEY_PRIVATE')
+
+# Sender Email (must be verified on Mailjet)
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
 mail = Mail(app)
 
 # ---------------- Database Config ----------------
