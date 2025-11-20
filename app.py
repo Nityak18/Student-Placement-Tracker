@@ -8,6 +8,9 @@ import os
 
 # ---------------- App Config ----------------
 load_dotenv()
+print("DEBUG MAILJET KEY:", os.environ.get("MJ_API_KEY"))
+print("DEBUG MAILJET SECRET:", os.environ.get("MJ_API_SECRET"))
+print("DEBUG SENDER:", os.environ.get("MAIL_DEFAULT_SENDER"))
 app = Flask(__name__)
 
 # ---------------- Secret Key ----------------
