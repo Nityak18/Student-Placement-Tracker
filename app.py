@@ -88,91 +88,47 @@ class ContactMessage(db.Model):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
 
+import requests
+
 def send_status_email(student_email, student_name, job_title, company_name, status):
-    """Send email notification to student about application status update"""
-    try:
-        # Create appropriate subject and body based on status
-        if status.lower() in ['shortlisted', 'shortlist']:
-            subject = f"🎉 Congratulations! Shortlisted for {job_title} at {company_name}"
-            body = f"""Dear {student_name},
+    api_key = os.getenv("MJ_APIKEY_PUBLIC")
+    secret_key = os.getenv("MJ_APIKEY_PRIVATE")
+    sender_email = os.getenv("MAIL_DEFAULT_SENDER")
 
-Congratulations! We are pleased to inform you that you have been SHORTLISTED for the position of "{job_title}" at {company_name}.
+    if not api_key or not secret_key or not sender_email:
+        return False, "Mailjet API keys not configured"
 
-This is an important milestone in your placement process. Please keep an eye on your email and dashboard for further updates regarding the next steps.
+    url = "https://api.mailjet.com/v3.1/send"
 
-What to do next:
-• Log in to your dashboard regularly for updates
-• Keep your resume and documents ready
-• Prepare for potential interviews
+    html_body = f"""
+        <h3>Hello {student_name},</h3>
+        <p>Your application status for <b>{job_title}</b> at <b>{company_name}</b> has been updated to:</p>
+        <h2>{status}</h2>
+        <p>Best regards,<br>Placement Cell Team</p>
+    """
 
-We wish you the best of luck for the upcoming rounds!
+    message = {
+        "Messages": [
+            {
+                "From": {"Email": sender_email, "Name": "Placement Cell"},
+                "To": [{"Email": student_email, "Name": student_name}],
+                "Subject": f"Application Status Update — {job_title}",
+                "TextPart": f"Your application status is now: {status}",
+                "HTMLPart": html_body
+            }
+        ]
+    }
 
-Best regards,
-Placement Cell Team
-"""
-        elif status.lower() in ['accepted', 'selected', 'placed']:
-            subject = f"🎊 Congratulations! Selected for {job_title} at {company_name}"
-            body = f"""Dear {student_name},
+    response = requests.post(
+        url,
+        auth=(api_key, secret_key),
+        json=message
+    )
 
-CONGRATULATIONS! 🎉
-
-We are thrilled to inform you that you have been SELECTED for the position of "{job_title}" at {company_name}!
-
-This is a wonderful achievement, and we are very proud of you. Please login to your dashboard for more details and further instructions.
-
-Next Steps:
-• Check your dashboard for offer letter details
-• Contact the placement cell if you have any questions
-• Await further communication from {company_name}
-
-Once again, congratulations on your success!
-
-Best regards,
-Placement Cell Team
-"""
-        elif status.lower() in ['rejected', 'not selected']:
-            subject = f"Application Update: {job_title} at {company_name}"
-            body = f"""Dear {student_name},
-
-Thank you for your interest in the position of "{job_title}" at {company_name}.
-
-After careful consideration, we regret to inform you that your application has not been selected for this particular role.
-
-However, please don't be discouraged. This is just one opportunity, and many more are ahead. We encourage you to:
-• Keep applying for other openings
-• Update your skills and resume
-• Stay positive and persistent
-
-Please login to your dashboard to view other available opportunities.
-
-Best regards,
-Placement Cell Team
-"""
-        else:
-            subject = f"Application Update: {job_title} at {company_name}"
-            body = f"""Dear {student_name},
-
-Your application status for the position of "{job_title}" at {company_name} has been updated to: {status.upper()}.
-
-Please login to your dashboard for more details and updates.
-
-Best regards,
-Placement Cell Team
-"""
-
-        # Create and send the message
-        msg = Message(
-            subject=subject,
-            recipients=[student_email],
-            body=body
-        )
-        mail.send(msg)
+    if response.status_code == 200:
         return True, "Email sent successfully"
-    
-    except Exception as e:
-        error_msg = f"Error sending email: {str(e)}"
-        print(error_msg)
-        return False, error_msg
+    else:
+        return False, f"Mailjet error: {response.text}"
 
 # ---------------- Routes ----------------
 @app.route('/')

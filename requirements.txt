@@ -1,5 +1,6 @@
 Flask
 Flask-SQLAlchemy
+requests
 Flask-Login
 Flask-WTF
 Flask-Mail
