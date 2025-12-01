@@ -1,32 +1,29 @@
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask_mail import Mail, Message
 from dotenv import load_dotenv
 import os
+import requests
+import json
 
 # ---------------- App Config ----------------
 load_dotenv()
-print("DEBUG MAILJET KEY:", os.environ.get("MJ_API_KEY"))
-print("DEBUG MAILJET SECRET:", os.environ.get("MJ_API_SECRET"))
-print("DEBUG SENDER:", os.environ.get("MAIL_DEFAULT_SENDER"))
 app = Flask(__name__)
 
 # ---------------- Secret Key ----------------
-app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret_key')
-# ---------------- Mail Config (Mailjet) ----------------
-app.config['MAIL_SERVER'] = 'in-v3.mailjet.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
+app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
 
-# Mailjet API Keys
-app.config['MAIL_USERNAME'] = os.environ.get('MJ_APIKEY_PUBLIC')
-app.config['MAIL_PASSWORD'] = os.environ.get('MJ_APIKEY_PRIVATE')
+# ---------------- Mailjet settings (used via REST API) ----------------
+MJ_APIKEY_PUBLIC = os.getenv('MJ_APIKEY_PUBLIC')
+MJ_APIKEY_PRIVATE = os.getenv('MJ_APIKEY_PRIVATE')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', MJ_APIKEY_PUBLIC)
 
-# Sender Email (must be verified on Mailjet)
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
-mail = Mail(app)
+# Debug print (optional)
+print("Mailjet public key:", bool(MJ_APIKEY_PUBLIC))
+print("Mailjet private key:", bool(MJ_APIKEY_PRIVATE))
+print("Mail default sender:", MAIL_DEFAULT_SENDER)
 
 # ---------------- Database Config ----------------
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -38,8 +35,8 @@ db = SQLAlchemy(app)
 # ---------------- Upload Config ----------------
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'resumes')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
 ALLOWED_EXT = {'pdf'}
+
 
 # ---------------- Database Models ----------------
 class User(db.Model):
@@ -50,6 +47,7 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False, default='student')
     student = db.relationship('Student', backref='user', uselist=False)
 
+
 class Student(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -59,12 +57,14 @@ class Student(db.Model):
     resume_path = db.Column(db.String(200))
     applications = db.relationship('Application', backref='student')
 
+
 class Admin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     department = db.Column(db.String(100), nullable=False)
+
 
 class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -75,11 +75,13 @@ class Job(db.Model):
     location = db.Column(db.String(100))
     applications = db.relationship('Application', backref='job')
 
+
 class Application(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
     status = db.Column(db.String(50), default="Applied")
+
 
 class ContactMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,60 +89,91 @@ class ContactMessage(db.Model):
     email = db.Column(db.String(120), nullable=False)
     message = db.Column(db.Text, nullable=False)
 
-# ---------------- Helper Functions ----------------
+
+# ---------------- Helpers ----------------
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
 
-import requests
 
-def send_status_email(student_email, student_name, job_title, company_name, status):
-    api_key = os.getenv("MJ_APIKEY_PUBLIC")
-    secret_key = os.getenv("MJ_APIKEY_PRIVATE")
-    sender_email = os.getenv("MAIL_DEFAULT_SENDER")
-
-    if not api_key or not secret_key or not sender_email:
-        return False, "Mailjet API keys not configured"
+def send_status_email(student_email: str, student_name: str, job_title: str, company_name: str, status: str):
+    """
+    Send email using Mailjet's v3.1 send API via requests.
+    Returns (True, message) on success, (False, error) on failure.
+    """
+    if not (MJ_APIKEY_PUBLIC and MJ_APIKEY_PRIVATE and MAIL_DEFAULT_SENDER):
+        err = "Mailjet credentials or sender not configured."
+        print(err)
+        return False, err
 
     url = "https://api.mailjet.com/v3.1/send"
 
+    # Compose a professional HTML email
     html_body = f"""
-        <h3>Hello {student_name},</h3>
-        <p>Your application status for <b>{job_title}</b> at <b>{company_name}</b> has been updated to:</p>
-        <h2>{status}</h2>
-        <p>Best regards,<br>Placement Cell Team</p>
+    <div style="font-family: Arial, sans-serif; line-height:1.5; color:#333;">
+      <p>Dear {student_name},</p>
+
+      <p>We are writing to inform you that the status of your application for the position of
+      <strong>{job_title}</strong> at <strong>{company_name}</strong> has been updated to:</p>
+
+      <p style="font-size:18px; font-weight:600; color:#0b6efd;">{status}</p>
+
+      <p>Please log in to your placement dashboard to view additional details and next steps.</p>
+
+      <hr>
+      <p style="font-size:13px; color:#666;">
+        This email was sent by the Placement Cell. If you believe you received this in error, please contact the placement cell administrator.
+      </p>
+
+      <p>Best regards,<br>Placement Cell Team</p>
+    </div>
     """
 
-    message = {
+    message_payload = {
         "Messages": [
             {
-                "From": {"Email": sender_email, "Name": "Placement Cell"},
-                "To": [{"Email": student_email, "Name": student_name}],
-                "Subject": f"Application Status Update — {job_title}",
-                "TextPart": f"Your application status is now: {status}",
+                "From": {
+                    "Email": MAIL_DEFAULT_SENDER,
+                    "Name": "Placement Cell"
+                },
+                "To": [
+                    {
+                        "Email": student_email,
+                        "Name": student_name
+                    }
+                ],
+                "Subject": f"Application Update — {job_title} at {company_name}",
+                "TextPart": f"Your application status for {job_title} at {company_name} is now: {status}",
                 "HTMLPart": html_body
             }
         ]
     }
 
-    response = requests.post(
-        url,
-        auth=(api_key, secret_key),
-        json=message
-    )
+    try:
+        response = requests.post(url, auth=(MJ_APIKEY_PUBLIC, MJ_APIKEY_PRIVATE), json=message_payload, timeout=10)
+        # Mailjet returns 200 for success; you may also check response.ok
+        if response.status_code == 200:
+            return True, "Email sent successfully"
+        else:
+            # return the response body for debugging
+            err_text = f"Mailjet error ({response.status_code}): {response.text}"
+            print(err_text)
+            return False, err_text
+    except Exception as e:
+        err = f"Exception while calling Mailjet: {str(e)}"
+        print(err)
+        return False, err
 
-    if response.status_code == 200:
-        return True, "Email sent successfully"
-    else:
-        return False, f"Mailjet error: {response.text}"
 
 # ---------------- Routes ----------------
 @app.route('/')
 def home():
     return render_template('index.html')
 
+
 @app.route('/about')
 def about():
     return render_template('about.html')
+
 
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
@@ -162,9 +195,11 @@ def contact():
 
     return render_template('contact.html')
 
+
 @app.route('/terms')
 def terms():
     return render_template('terms.html')
+
 
 # ---------------- Student Routes ----------------
 @app.route('/student_register', methods=['GET', 'POST'])
@@ -176,15 +211,22 @@ def student_register():
         roll_no = request.form.get('roll_no', '').strip()
         department = request.form.get('department', '').strip()
         skills = request.form.get('skills', '').strip()
+        accept_terms = request.form.get('accept_terms')
 
         if not (username and email and raw_password and roll_no and department):
             flash("Please fill required fields.", "danger")
             return redirect(url_for('student_register'))
 
+        if not accept_terms:
+            flash("You must agree to the Terms & Conditions to register.", "danger")
+            return redirect(url_for('student_register'))
+
+        # check duplicate email or username
         if User.query.filter((User.email == email) | (User.username == username)).first():
             flash("Username or email already registered.", "danger")
             return redirect(url_for('student_register'))
 
+        # handle resume
         filename = None
         if 'resume' in request.files and request.files['resume'].filename != '':
             resume = request.files['resume']
@@ -206,6 +248,7 @@ def student_register():
         db.session.add(new_student)
         db.session.commit()
 
+        # auto-login
         session['user_id'] = new_user.id
         session['username'] = new_user.username
         session['role'] = 'student'
@@ -213,6 +256,7 @@ def student_register():
         return redirect(url_for('student_dashboard'))
 
     return render_template('student_registration.html')
+
 
 @app.route('/student_dashboard')
 def student_dashboard():
@@ -231,6 +275,7 @@ def student_dashboard():
 
     return render_template('student_dashboard.html', student=student, jobs=jobs, applications=applications)
 
+
 @app.route('/delete_account', methods=['POST'])
 def delete_account():
     if 'user_id' not in session:
@@ -239,15 +284,21 @@ def delete_account():
 
     user_id = session['user_id']
     student = Student.query.filter_by(user_id=user_id).first()
+    if not student:
+        flash("Student record not found.", "danger")
+        return redirect(url_for('home'))
 
-    if student:
+    try:
+        # delete applications
         Application.query.filter_by(student_id=student.id).delete()
 
+        # delete resume file
         if student.resume_path:
             resume_file = os.path.join(app.config['UPLOAD_FOLDER'], student.resume_path)
             if os.path.exists(resume_file):
                 os.remove(resume_file)
 
+        # delete student and user
         db.session.delete(student)
         user = User.query.get(user_id)
         if user:
@@ -256,10 +307,13 @@ def delete_account():
         db.session.commit()
         session.clear()
         flash("Your account and data have been permanently deleted.", "success")
-        return redirect(url_for('home'))
-    else:
-        flash("Student record not found.", "danger")
-        return redirect(url_for('home'))
+    except Exception as e:
+        db.session.rollback()
+        print("Error deleting account:", repr(e))
+        flash("An error occurred while deleting your account. Contact support.", "danger")
+
+    return redirect(url_for('home'))
+
 
 @app.route('/apply_job/<int:job_id>')
 def apply_job(job_id):
@@ -284,6 +338,7 @@ def apply_job(job_id):
 
     return redirect(url_for('student_dashboard'))
 
+
 # ---------------- Admin Routes ----------------
 @app.route('/admin_register', methods=['GET', 'POST'])
 def admin_register():
@@ -307,6 +362,7 @@ def admin_register():
         db.session.add(admin)
         db.session.commit()
 
+        # auto-login admin
         session['user_id'] = admin.id
         session['username'] = admin.username
         session['role'] = 'admin'
@@ -315,6 +371,7 @@ def admin_register():
 
     return render_template('admin_registration.html')
 
+
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if session.get('role') != 'admin' or 'user_id' not in session:
@@ -322,6 +379,7 @@ def admin_dashboard():
         return redirect(url_for('login'))
 
     return render_template('admin_dashboard.html')
+
 
 @app.route('/post_job', methods=['GET', 'POST'])
 def post_job():
@@ -350,6 +408,7 @@ def post_job():
     jobs = Job.query.all()
     return render_template('post_job.html', jobs=jobs)
 
+
 @app.route('/view_students')
 def view_students():
     if session.get('role') != 'admin' or 'user_id' not in session:
@@ -358,6 +417,7 @@ def view_students():
 
     students = Student.query.all()
     return render_template('view_students.html', students=students)
+
 
 @app.route('/track_applications', methods=['GET', 'POST'])
 def track_applications():
@@ -372,28 +432,30 @@ def track_applications():
         if app_id and new_status:
             application = Application.query.get(app_id)
             if application:
-                # Update status in database
                 application.status = new_status
                 db.session.commit()
-                
-                # Get student and job details
-                student = application.student
-                student_user = student.user
-                job = application.job
-                
-                # Send email notification
-                success, message = send_status_email(
-                    student_email=student_user.email,
-                    student_name=student_user.username,
-                    job_title=job.role,
-                    company_name=job.company_name,
-                    status=new_status
-                )
-                
-                if success:
-                    flash(f"Application status updated to '{new_status}' and email sent to student!", "success")
-                else:
-                    flash(f"Status updated to '{new_status}' but email notification failed: {message}", "warning")
+
+                # send email
+                try:
+                    student = application.student
+                    student_user = student.user
+                    job = application.job
+
+                    success, msg = send_status_email(
+                        student_email=student_user.email,
+                        student_name=student_user.username,
+                        job_title=job.role,
+                        company_name=job.company_name,
+                        status=new_status
+                    )
+
+                    if success:
+                        flash(f"Application status updated to '{new_status}' and email sent to student!", "success")
+                    else:
+                        flash(f"Status updated to '{new_status}' but email notification failed: {msg}", "warning")
+                except Exception as e:
+                    print("Error during email send:", repr(e))
+                    flash("Status updated but email notification failed.", "warning")
             else:
                 flash("Application not found!", "danger")
         else:
@@ -404,9 +466,11 @@ def track_applications():
     applications = Application.query.all()
     return render_template('track_applications.html', applications=applications)
 
+
 @app.route('/view_resume/<filename>')
 def view_resume(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 # ---------------- Login / Logout ----------------
 @app.route('/login', methods=['GET', 'POST'])
@@ -437,16 +501,19 @@ def login():
                 return redirect(url_for('admin_dashboard'))
             else:
                 flash('Invalid placement cell credentials', 'danger')
+
         else:
             flash('Please select a role to login.', 'danger')
 
     return render_template('login.html')
+
 
 @app.route('/logout')
 def logout():
     session.clear()
     flash("Logged out successfully!", "info")
     return redirect(url_for('home'))
+
 
 # ---------------- Run App ----------------
 if __name__ == '__main__':
