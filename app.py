@@ -21,9 +21,10 @@ MJ_APIKEY_PRIVATE = os.getenv('MJ_APIKEY_PRIVATE')
 MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', MJ_APIKEY_PUBLIC)
 
 # Debug print (optional)
-print("Mailjet public key:", bool(MJ_APIKEY_PUBLIC))
-print("Mailjet private key:", bool(MJ_APIKEY_PRIVATE))
-print("Mail default sender:", MAIL_DEFAULT_SENDER)
+
+print("DEBUG MAILJET KEY:", os.environ.get("MJ_API_KEY"))
+print("DEBUG MAILJET SECRET:", os.environ.get("MJ_API_SECRET"))
+print("DEBUG SENDER:", os.environ.get("MAIL_DEFAULT_SENDER"))
 
 # ---------------- Database Config ----------------
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
