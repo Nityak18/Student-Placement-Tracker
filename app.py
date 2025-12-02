@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -212,14 +211,9 @@ def student_register():
         roll_no = request.form.get('roll_no', '').strip()
         department = request.form.get('department', '').strip()
         skills = request.form.get('skills', '').strip()
-        accept_terms = request.form.get('accept_terms')
 
         if not (username and email and raw_password and roll_no and department):
             flash("Please fill required fields.", "danger")
-            return redirect(url_for('student_register'))
-
-        if not accept_terms:
-            flash("You must agree to the Terms & Conditions to register.", "danger")
             return redirect(url_for('student_register'))
 
         # check duplicate email or username
